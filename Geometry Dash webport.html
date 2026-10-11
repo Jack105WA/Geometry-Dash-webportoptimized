@@ -706,7 +706,7 @@ function gdCookieBackup() {
         var payload = JSON.stringify({version: 1, savedAt: Date.now(), files: files});
         var encoded = encodeURIComponent(payload);
         if (encoded.length > gdCookieBackupLimit) {
-            gdSetCookie('gdw_meta', '');
+            gdSetCookie('gdw_count', '');
             for (var c = 0; c < 10; c++) gdSetCookie('gdw_' + c, '');
             return;
         }
@@ -746,7 +746,9 @@ function gdRestoreCookieBackup() {
 var gdSaveSigs = {};
 function gdSyncSaves() {
     try {
-        if (!window.indexedDB || !Module.FS) return;
+        if (!Module.FS) return;
+        gdCookieBackup();
+        if (!window.indexedDB) return;
         var dir = '/AppData';
         var names = Module.FS.readdir(dir);
         var batch = [];
@@ -756,12 +758,17 @@ function gdSyncSaves() {
             var p = dir + '/' + n;
             var st = Module.FS.stat(p);
             if (!Module.FS.isFile(st.mode)) continue;
-            var sig = st.size + ':' + (+st.mtime);
+            var data = Module.FS.readFile(p);
+            var hash = 2166136261;
+            for (var h = 0; h < data.length; h++) {
+                hash ^= data[h];
+                hash = Math.imul(hash, 16777619);
+            }
+            var sig = st.size + ':' + (+st.mtime) + ':' + (hash >>> 0);
             if (gdSaveSigs[p] === sig) continue;
-            batch.push({ key: 'AppData/' + n, path: p, sig: sig, data: Module.FS.readFile(p) });
+            batch.push({ key: 'AppData/' + n, path: p, sig: sig, data: data });
         }
         if (!batch.length) return;
-        gdCookieBackup();
         var req = indexedDB.open('gdwasm_saves', 1);
         req.onupgradeneeded = function() {
             if (!req.result.objectStoreNames.contains('files'))
@@ -1105,7 +1112,7 @@ function restoreSaves(then) {
                             }
                         }
                         Module.FS.writeFile(path, bytes);
-                        gdRestoredAny = true;
+                        if (path.indexOf('/AppData/') === 0) gdRestoredAny = true;
                     } catch (e) {
                         say('[persist] restore failed: ' + e);
                     }
@@ -1303,9 +1310,6 @@ var Module = {
             Module._gd_log_set
         )
             Module._gd_log_set(0);
-
-        if (Module._gd_autosave_set)
-            Module._gd_autosave_set(0);
 
         setProgress(82);
 
