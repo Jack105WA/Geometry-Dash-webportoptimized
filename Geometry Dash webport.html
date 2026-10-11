@@ -1,12 +1,33 @@
 <!DOCTYPE html><html><head>
 <base href="https://cdn.jsdelivr.net/gh/Ale7208/geometry-dash-web/">
 <script>
-window.__gdProxyBases=(function(){var d=["https://boomlings.ale7208.workers.dev/?url=","https://proxy.corsfix.com/?","https://corsproxy.io/?url=","https://api.allorigins.win/raw?url=", "https://boomlings.ivan-makarov12341.workers.dev/?url="];try{var q=new URLSearchParams(location.search).get("proxy");if(q){try{localStorage.setItem("gdProxyBase",q);}catch(e){}return[q];}var s=localStorage.getItem("gdProxyBase");if(s)return[s].concat(d.filter(function(x){return x!==s;}));}catch(e){}return d;})();
-window.__gdProxyBase=window.__gdProxyBases[0];
-window.__gdProxyPass=["googletagmanager","cloudflareinsights","jsdelivr","gstatic","googleapis","corsfix","corsproxy","allorigins","workers.dev"];
-window.__gdProxyTarget=function(u){var k="/__proxy?url=";if(typeof u!=="string")return null;for(var b=0;b<window.__gdProxyBases.length;b++)if(u.indexOf(window.__gdProxyBases[b])===0)return null;var i=u.indexOf(k);if(i>=0){if(i>0){try{if(new URL(u.slice(0,i)).origin!==location.origin)return null;}catch(e){return null;}}var s=u.slice(i+k.length);try{return decodeURIComponent(s);}catch(e){return s;}}if(/^https?:\/\//i.test(u)){try{var w=new URL(u);if(w.origin===location.origin)return null;for(var p=0;p<window.__gdProxyPass.length;p++)if(w.hostname.indexOf(window.__gdProxyPass[p])>=0)return null;return u;}catch(e){return null;}}return null;};
-window.__gdProxyBuild=function(base,target){if(base.indexOf("corsfix")>=0)return base+target;return base+encodeURIComponent(target);};
-(function(){var nativeFetch=window.fetch.bind(window);function retryable(st){return st===400||st===401||st===403||st===429||st===503;}function secret(init){try{var b=init&&init.body;if(!b)return false;var t=typeof b==="string"?b:new TextDecoder().decode(b);return /(^|&)(gjp2?|password)=/.test(t);}catch(e){return false;}}function attempt(input,init,target,form,idx){if(idx>=0&&secret(init))return Promise.reject(new TypeError("login data is only sent through the site's own proxy"));if(idx<0){return nativeFetch(input,init).then(function(res){if(form){if((res.status===404||res.status===405)){window.__gdProxyLocal=false;return attempt(input,init,target,form,0);}window.__gdProxyLocal=true;return res;}if(retryable(res.status))return attempt(input,init,target,form,0);return res;},function(){if(form)window.__gdProxyLocal=false;return attempt(input,init,target,form,0);});}var url=window.__gdProxyBuild(window.__gdProxyBases[idx],target);var out=(typeof input==="string")?url:((typeof Request!=="undefined")?new Request(url,input):url);return nativeFetch(out,init).then(function(res){if(retryable(res.status)&&idx<window.__gdProxyBases.length-1)return attempt(input,init,target,form,idx+1);window.__gdProxyBase=window.__gdProxyBases[idx];return res;},function(err){if(idx<window.__gdProxyBases.length-1)return attempt(input,init,target,form,idx+1);throw err;});}window.fetch=function(input,init){var u=(typeof input==="string")?input:(input&&input.url);var target=window.__gdProxyTarget(u);if(target===null)return nativeFetch(input,init);var form=u.indexOf("/__proxy?url=")>=0;var rest=function(){if(form&&window.__gdProxyLocal===false)return attempt(input,init,target,form,0);return attempt(input,init,target,form,-1);};return rest();};var nativeOpen=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(method,url){if(typeof url==="string"){var target=window.__gdProxyTarget(url);if(target!==null){var form=url.indexOf("/__proxy?url=")>=0;if(!(form&&window.__gdProxyLocal!==false))arguments[1]=window.__gdProxyBuild(window.__gdProxyBase||window.__gdProxyBases[0],target);}}return nativeOpen.apply(this,arguments);};})();
+(function () {
+  function normalizeGDURL(value) {
+    if (typeof value !== "string") return value;
+    try {
+      var u = new URL(value, location.href);
+      if (u.hostname === "boomlings.com") u.hostname = "www.boomlings.com";
+      if (u.hostname === "robtopgames.org") u.hostname = "www.robtopgames.org";
+      return u.href;
+    } catch (e) { return value; }
+  }
+  var nativeFetch = window.fetch;
+  if (nativeFetch) {
+    window.fetch = function (input, init) {
+      if (typeof input === "string") return nativeFetch.call(this, normalizeGDURL(input), init);
+      if (input && input.url && typeof Request !== "undefined") {
+        var url = normalizeGDURL(input.url);
+        if (url !== input.url) input = new Request(url, input);
+      }
+      return nativeFetch.call(this, input, init);
+    };
+  }
+  var nativeOpen = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function (method, url) {
+    arguments[1] = normalizeGDURL(url);
+    return nativeOpen.apply(this, arguments);
+  };
+})();
 </script>
 
 <script>
@@ -650,6 +671,78 @@ window.gdFirstFrame = function() {
     setProgress(100);
 };
 
+var gdCookieBackupLimit = 28000;
+function gdSetCookie(name, value) {
+    document.cookie = name + '=' + encodeURIComponent(value) + '; Path=/; Max-Age=31536000; SameSite=Lax';
+}
+function gdGetCookie(name) {
+    var prefix = name + '=';
+    var parts = document.cookie ? document.cookie.split(';') : [];
+    for (var i = 0; i < parts.length; i++) {
+        var p = parts[i].trim();
+        if (p.indexOf(prefix) === 0) {
+            try { return decodeURIComponent(p.slice(prefix.length)); } catch (e) { return null; }
+        }
+    }
+    return null;
+}
+function gdCookieBackup() {
+    try {
+        if (!Module.FS) return;
+        var names = Module.FS.readdir('/AppData');
+        var files = {};
+        for (var i = 0; i < names.length; i++) {
+            var n = names[i];
+            if (n === '.' || n === '..') continue;
+            var path = '/AppData/' + n;
+            var st = Module.FS.stat(path);
+            if (!Module.FS.isFile(st.mode)) continue;
+            var bytes = Module.FS.readFile(path);
+            var binary = '';
+            for (var j = 0; j < bytes.length; j += 8192)
+                binary += String.fromCharCode.apply(null, bytes.subarray(j, Math.min(j + 8192, bytes.length)));
+            files[n] = btoa(binary);
+        }
+        var payload = JSON.stringify({version: 1, savedAt: Date.now(), files: files});
+        var encoded = encodeURIComponent(payload);
+        if (encoded.length > gdCookieBackupLimit) {
+            gdSetCookie('gdw_meta', '');
+            for (var c = 0; c < 10; c++) gdSetCookie('gdw_' + c, '');
+            return;
+        }
+        var chunkSize = 3000;
+        var count = Math.ceil(encoded.length / chunkSize);
+        gdSetCookie('gdw_count', String(count));
+        for (var c = 0; c < count; c++)
+            gdSetCookie('gdw_' + c, encoded.slice(c * chunkSize, (c + 1) * chunkSize));
+        for (var c = count; c < 10; c++) gdSetCookie('gdw_' + c, '');
+    } catch (e) {}
+}
+function gdRestoreCookieBackup() {
+    try {
+        if (!Module.FS) return false;
+        var count = parseInt(gdGetCookie('gdw_count') || '0', 10);
+        if (!count || count > 10) return false;
+        var encoded = '';
+        for (var i = 0; i < count; i++) {
+            var chunk = gdGetCookie('gdw_' + i);
+            if (chunk === null) return false;
+            encoded += chunk;
+        }
+        var payload = JSON.parse(decodeURIComponent(encoded));
+        if (!payload || payload.version !== 1 || !payload.files) return false;
+        var restored = false;
+        Object.keys(payload.files).forEach(function (name) {
+            if (!/^[A-Za-z0-9_. -]+$/.test(name)) return;
+            var binary = atob(payload.files[name]);
+            var bytes = new Uint8Array(binary.length);
+            for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            Module.FS.writeFile('/AppData/' + name, bytes);
+            restored = true;
+        });
+        return restored;
+    } catch (e) { return false; }
+}
 var gdSaveSigs = {};
 function gdSyncSaves() {
     try {
@@ -668,6 +761,7 @@ function gdSyncSaves() {
             batch.push({ key: 'AppData/' + n, path: p, sig: sig, data: Module.FS.readFile(p) });
         }
         if (!batch.length) return;
+        gdCookieBackup();
         var req = indexedDB.open('gdwasm_saves', 1);
         req.onupgradeneeded = function() {
             if (!req.result.objectStoreNames.contains('files'))
@@ -958,11 +1052,13 @@ window.addEventListener(
 function restoreSaves(then) {
     var called = false;
     var db = null;
+    var gdRestoredAny = false;
 
     function finish() {
         if (called) return;
         called = true;
         if (db) db.close();
+        if (!gdRestoredAny) gdRestoreCookieBackup();
         then();
     }
     try {
@@ -1009,6 +1105,7 @@ function restoreSaves(then) {
                             }
                         }
                         Module.FS.writeFile(path, bytes);
+                        gdRestoredAny = true;
                     } catch (e) {
                         say('[persist] restore failed: ' + e);
                     }
